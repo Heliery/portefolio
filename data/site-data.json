@@ -1,0 +1,154 @@
+{
+  "topics": [
+    {
+      "id": "tszoww1eq",
+      "linkedTo": [],
+      "title": "Industrialisation de la migration CentOS 7 vers RHEL 9",
+      "family": "RedHat",
+      "technologies": [
+        "RHEL",
+        "CentOS",
+        "Migration"
+      ],
+      "date": "2024-09-01",
+      "description": "Construction et évolution d'une usine de migration permettant de faire basculer le parc de serveurs CentOS 7 vers RHEL 9 à l'échelle de l'offre IAAS."
+    },
+    {
+      "id": "tdz3rdffd",
+      "linkedTo": [],
+      "title": "Mutualisation et évolution de Red Hat Satellite",
+      "family": "RedHat",
+      "technologies": [
+        "Red Hat Satellite"
+      ],
+      "date": "2024-11-15",
+      "description": "Refonte de l'architecture Satellite pour mutualiser sa gestion à l'échelle du parc et simplifier ses évolutions futures."
+    },
+    {
+      "id": "t1r2ydwsi",
+      "linkedTo": [],
+      "title": "Intégration de Rocky Linux aux offres IAAS",
+      "family": "RedHat",
+      "technologies": [
+        "Rocky Linux",
+        "IAAS"
+      ],
+      "date": "2025-02-10",
+      "description": "Ajout de Rocky Linux 8 et 9 au catalogue des systèmes d'exploitation proposés par l'offre infrastructure, en alternative à RHEL."
+    },
+    {
+      "id": "ttag7yxp9",
+      "linkedTo": [],
+      "title": "Automatisation des tâches d'administration système",
+      "family": "Automatisation",
+      "technologies": [
+        "Ansible",
+        "AWX"
+      ],
+      "date": "2024-06-05",
+      "description": "Conception de playbooks Ansible pilotés via AWX pour automatiser les tâches récurrentes d'exploitation du parc serveur."
+    },
+    {
+      "id": "te3pgn6pd",
+      "linkedTo": [],
+      "title": "Mise en conformité automatisée avec les recommandations de l'AIG",
+      "family": "Automatisation",
+      "technologies": [
+        "Ansible",
+        "Sécurité",
+        "Conformité"
+      ],
+      "date": "2025-04-20",
+      "description": "Évolution des automatismes existants pour intégrer les recommandations de sécurité de l'AIG, et étude d'un job de mise en conformité des systèmes d'exploitation."
+    },
+    {
+      "id": "tbqmlehq8",
+      "linkedTo": [],
+      "title": "Amélioration du processus de Patch Management",
+      "family": "Automatisation",
+      "technologies": [
+        "Patch Management"
+      ],
+      "date": "2024-08-12",
+      "description": "Refonte du processus de patch management du parc serveur pour fiabiliser et accélérer le déploiement des correctifs."
+    },
+    {
+      "id": "ti67t4zz4",
+      "linkedTo": [],
+      "title": "Mise en place de chaînes d'intégration et de déploiement continu",
+      "family": "CI/CD",
+      "technologies": [
+        "Jenkins",
+        "Git",
+        "OpenShift"
+      ],
+      "date": "2022-03-08",
+      "description": "Conception et déploiement de pipelines CI/CD pour fiabiliser les mises en production applicatives, en s'appuyant sur Jenkins, Git et OpenShift."
+    },
+    {
+      "id": "tzxpxbwg0",
+      "linkedTo": [],
+      "title": "Déploiement d'environnements de build et de run applicatifs",
+      "family": "CI/CD",
+      "technologies": [
+        "OpenShift",
+        "VMware"
+      ],
+      "date": "2022-09-14",
+      "description": "Déploiement et maintien des environnements applicatifs de build et de run, incluant les phases de test réalisées en amont du développement."
+    },
+    {
+      "id": "t8b88clo5",
+      "linkedTo": [],
+      "title": "Mise en place de tableaux de bord de suivi de performance",
+      "family": "Supervision",
+      "technologies": [
+        "Grafana",
+        "ELK",
+        "Centreon"
+      ],
+      "date": "2023-02-20",
+      "description": "Construction de tableaux de bord de suivi de performance et surveillance en temps réel des systèmes et des applications."
+    },
+    {
+      "id": "tj4ub6ip9",
+      "linkedTo": [],
+      "title": "Mise en œuvre de solutions de supervision, monitoring et sauvegarde",
+      "family": "Supervision",
+      "technologies": [
+        "Centreon",
+        "Grafana",
+        "ELK",
+        "Sauvegarde"
+      ],
+      "date": "2018-05-15",
+      "description": "Déploiement de solutions de supervision, de monitoring et de sauvegarde pour le compte de clients, dans le cadre de missions d'infogérance infrastructure."
+    },
+    {
+      "id": "tkjfydge3",
+      "linkedTo": [],
+      "title": "Vérification d'aptitude à la bonne exploitabilité (VABE)",
+      "family": "Supervision",
+      "technologies": [
+        "VisualTOM",
+        "VMware"
+      ],
+      "date": "2019-03-11",
+      "description": "Installation des applications et tests d'exploitabilité sur les plateformes de pré-production, avec livrable de procès-verbal de VABE avant mise en production."
+    },
+    {
+      "id": "tp0807bgi",
+      "linkedTo": [],
+      "title": "Refonte de la supervision réseau vers une solution open source",
+      "family": "Supervision",
+      "technologies": [
+        "LibreNMS",
+        "Réseau"
+      ],
+      "date": "2017-03-01",
+      "description": "Étude des besoins et des solutions libres de supervision, puis déploiement de LibreNMS pour superviser plusieurs milliers d'équipements réseau ; formation des utilisateurs et mise en exploitation."
+    }
+  ],
+  "familyColors": {},
+  "exportedAt": "2026-09-10T17:21:37.191Z"
+}
