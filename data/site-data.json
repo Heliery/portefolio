@@ -2,16 +2,20 @@
   "topics": [
     {
       "id": "tszoww1eq",
-      "linkedTo": [],
+      "linkedTo": [
+        "tdz3rdffd"
+      ],
       "title": "Industrialisation de la migration CentOS 7 vers RHEL 9",
       "family": "RedHat",
       "technologies": [
         "RHEL",
         "CentOS",
-        "Migration"
+        "Migration",
+        "Automatisation",
+        "Red Hat Satellite"
       ],
-      "date": "2024-09-01",
-      "description": "Construction et évolution d'une usine de migration permettant de faire basculer le parc de serveurs CentOS 7 vers RHEL 9 à l'échelle de l'offre IAAS."
+      "date": "2025-09-01",
+      "description": "Construction et évolution d'une usine de migration permettant de faire basculer le parc de serveurs CentOS 7 vers RHEL 9 à l'échelle de l'offre IAAS.\n3 apis sont mises à dispositions des utilisateurs pour réaliser les migrations :\n- Api de précheck pour vérifier la conformité d'un serveur à la migration\n- Api de migration pour réaliser la conversion (CentOS 7 => RedHat 7) ou la migration (RedHat 7 => 8 => 9)\n- Api de rollback en cas de régression post migration"
     },
     {
       "id": "tdz3rdffd",
@@ -87,12 +91,17 @@
     },
     {
       "id": "tzxpxbwg0",
-      "linkedTo": [],
+      "linkedTo": [
+        "ti67t4zz4"
+      ],
       "title": "Déploiement d'environnements de build et de run applicatifs",
       "family": "CI/CD",
       "technologies": [
-        "OpenShift",
-        "VMware"
+        "CICD",
+        "Jenkins",
+        "Openshift",
+        "Git",
+        "Tex2i"
       ],
       "date": "2022-09-14",
       "description": "Déploiement et maintien des environnements applicatifs de build et de run, incluant les phases de test réalisées en amont du développement."
@@ -147,8 +156,23 @@
       ],
       "date": "2017-03-01",
       "description": "Étude des besoins et des solutions libres de supervision, puis déploiement de LibreNMS pour superviser plusieurs milliers d'équipements réseau ; formation des utilisateurs et mise en exploitation."
+    },
+    {
+      "id": "tn7zff1zs",
+      "title": "Développement d'une api de remédiation Linux",
+      "technologies": [
+        "RedHat",
+        "Ubuntu",
+        "Automatisation"
+      ],
+      "family": "Automatisation",
+      "date": "2027-01-29",
+      "description": "Développement d'une api permettant de checker la conformité d'un serveur par rapport à une liste statuée par l'équipe HW/OS.\nCette api permet également de mettre en conformité le serveur si l'utilisateur le désire. Cela est possible uniquement après avoir lancé une première fois l'api pour checker la conformité.",
+      "linkedTo": [
+        "tbqmlehq8"
+      ]
     }
   ],
   "familyColors": {},
-  "exportedAt": "2026-09-10T17:21:37.191Z"
+  "exportedAt": "2026-09-10T17:45:00.410Z"
 }
