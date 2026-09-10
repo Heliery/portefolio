@@ -81,6 +81,8 @@
     cursor:pointer;background:var(--panel-raised);}
   .tag-chip:hover{border-color:var(--gold);}
   .tag-chip.active{background:var(--gold);border-color:var(--gold);color:#fff8ec;}
+  .tag-chip.tag-toggle{background:transparent;border-style:dashed;color:var(--gold-bright);font-weight:600;}
+  .tag-chip.tag-toggle:hover{background:var(--panel-raised);}
 
   .cluster-legend{display:flex;flex-direction:column;gap:2px;}
   .cluster-item{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:var(--radius);
@@ -232,17 +234,21 @@
       <div class="cluster-legend" id="clusterLegend"></div>
       <div class="field-hint">Cliquez un nom (ou son étoile dans le graphe) pour isoler la famille et voir toutes ses fiches. Cliquez son disque pour changer sa couleur.</div>
 
+      <div class="section-label" id="roleSectionLabel" style="display:none;">Fonction occupée</div>
+      <div class="cluster-legend" id="roleLegend"></div>
+
       <div class="section-label">Affichage</div>
       <div class="toggle-row">
         <button class="ghost-btn" id="orphanToggle">Sujets orphelins</button>
       </div>
       <div class="recency-note">Un point plus lumineux = un sujet plus récent.</div>
 
-      <div class="section-label">Données</div>
+      <div class="section-label" id="dataSectionLabel">Données</div>
       <div class="toggle-row">
-        <button class="ghost-btn" id="exportBtn">Exporter</button>
+        <button class="ghost-btn" id="exportBtn">Publier (télécharger)</button>
         <button class="ghost-btn" id="importBtn">Importer</button>
       </div>
+      <div class="field-hint" id="dataHint">"Publier" télécharge site-data.json : déposez-le dans le dossier data/ de votre dépôt GitHub pour que tout le monde voie vos dernières fiches.</div>
       <input type="file" id="importFile" accept="application/json" style="display:none;">
 
       <div style="margin-top:auto;padding-top:14px;" id="sidebarEmpty">
@@ -299,6 +305,14 @@
           <input type="text" id="f-family-new" placeholder="ex. Réseau">
         </div>
 
+        <label for="f-role">Fonction (poste occupé)</label>
+        <select id="f-role"></select>
+        <div id="newRoleWrap" style="display:none;">
+          <label for="f-role-new">Nom de la nouvelle fonction</label>
+          <input type="text" id="f-role-new" placeholder="ex. Administrateur Infrastructure IT">
+        </div>
+        <div class="field-hint">Le poste dans le cadre duquel ce sujet a été traité. Optionnel, mais permet ensuite de filtrer par fonction occupée.</div>
+
         <label for="f-tech">Mots-clés (séparés par des virgules)</label>
         <input type="text" id="f-tech" placeholder="RedHat, Ansible, Sécurité">
         <div class="field-hint">Utilisés pour la recherche, le filtre, l'affichage en étiquettes, et pour relier ce sujet à d'autres familles lorsqu'un mot-clé correspond au nom de l'une d'elles.</div>
@@ -341,9 +355,12 @@
 (function(){
 
 /* ============================= STORAGE KEYS ============================= */
-const TOPICS_KEY = 'topics-data-v3';
-const COLORS_KEY = 'family-colors-v2';
+const APP_DATA_KEY = 'app-data-v1';
 const PALETTE = ['#a97426','#3f7f97','#7a56a8','#3f8f5f','#a84f70','#8a6a1f','#3f5fa8','#a05a36','#3f7a6a','#8a4f88'];
+/* Chemin du fichier de données publié dans le dépôt (voir bouton "Publier pour tous"
+   dans la barre latérale). Une fois ce fichier commité sur GitHub, chaque visiteur
+   dont la copie locale est plus ancienne reçoit automatiquement la version publiée. */
+const PUBLISHED_DATA_URL = './data/site-data.json';
 
 const SEED = [
   {title:"Industrialisation de la migration CentOS 7 vers RHEL 9", family:"RedHat", technologies:["RHEL","CentOS","Migration"], date:"2024-09-01",
@@ -370,6 +387,14 @@ const SEED = [
     description:"Installation des applications et tests d'exploitabilité sur les plateformes de pré-production, avec livrable de procès-verbal de VABE avant mise en production."},
   {title:"Refonte de la supervision réseau vers une solution open source", family:"Supervision", technologies:["LibreNMS","Réseau"], date:"2017-03-01",
     description:"Étude des besoins et des solutions libres de supervision, puis déploiement de LibreNMS pour superviser plusieurs milliers d'équipements réseau ; formation des utilisateurs et mise en exploitation."}
+];
+/* Fonctions proposées par défaut dans le formulaire, sans être rattachées à une
+   fiche en particulier — l'utilisateur choisit lui-même à qui elles s'appliquent. */
+const ROLE_PRESETS = [
+  "Administrateur Infrastructure IT",
+  "Ingénieur DevOps",
+  "Exploitant informatique",
+  "Alternant chargé de projet Supervision Réseau"
 ];
 
 let topics = [];
@@ -403,6 +428,9 @@ function updateEditModeUI(){
   loginBtn.classList.toggle('logged', isEditMode);
   document.querySelector('nav button[data-view="form"]').style.display = isEditMode ? '' : 'none';
   document.getElementById('importBtn').style.display = isEditMode ? '' : 'none';
+  document.getElementById('exportBtn').style.display = isEditMode ? '' : 'none';
+  document.getElementById('dataHint').style.display = isEditMode ? '' : 'none';
+  document.getElementById('dataSectionLabel').style.display = isEditMode ? '' : 'none';
   if(!isEditMode && document.querySelector('nav button[data-view="form"]').classList.contains('active')){
     goToView('map');
   }
@@ -440,27 +468,38 @@ async function storageSet(key, value){
 }
 
 async function loadAll(){
+  let local = null;
   try{
-    const value = await storageGet(TOPICS_KEY);
-    if(value) topics = JSON.parse(value).map(migrateTopic);
-    else throw new Error('empty');
-  }catch(e){
-    topics = SEED.map(t => migrateTopic(Object.assign({id:uid(), linkedTo:[]}, t)));
-    await saveTopics();
+    const value = await storageGet(APP_DATA_KEY);
+    if(value) local = JSON.parse(value);
+  }catch(e){ local = null; }
+
+  let published = null;
+  try{
+    const res = await fetch(PUBLISHED_DATA_URL, {cache:'no-store'});
+    if(res.ok) published = await res.json();
+  }catch(e){ published = null; }
+
+  let chosen;
+  if(published && Array.isArray(published.topics) && (!local || (published.exportedAt||'') > (local.exportedAt||''))){
+    chosen = published;
+  }else if(local && Array.isArray(local.topics)){
+    chosen = local;
+  }else{
+    chosen = {topics: SEED.map(t => Object.assign({id:uid(), linkedTo:[]}, t)), familyColors:{}, exportedAt:new Date().toISOString()};
   }
+
+  topics = chosen.topics.map(migrateTopic);
+  familyColors = chosen.familyColors || {};
+  await saveAll();
+}
+async function saveAll(){
   try{
-    const value = await storageGet(COLORS_KEY);
-    if(value) familyColors = JSON.parse(value);
-  }catch(e){ familyColors = {}; }
+    await storageSet(APP_DATA_KEY, JSON.stringify({topics, familyColors, exportedAt:new Date().toISOString()}));
+  }catch(e){ console.error('Erreur de sauvegarde', e); }
 }
-async function saveTopics(){
-  try{ await storageSet(TOPICS_KEY, JSON.stringify(topics)); }
-  catch(e){ console.error('Erreur de sauvegarde des fiches', e); }
-}
-async function saveColors(){
-  try{ await storageSet(COLORS_KEY, JSON.stringify(familyColors)); }
-  catch(e){ console.error('Erreur de sauvegarde des couleurs', e); }
-}
+async function saveTopics(){ return saveAll(); }
+async function saveColors(){ return saveAll(); }
 
 /* ============================= CLUSTERING ============================= */
 function clusterKeyOf(t){ return t.family || 'Sans famille'; }
@@ -668,6 +707,7 @@ const svg = document.getElementById('graph');
 const viewport = document.getElementById('viewport');
 let searchQuery = '';
 let activeClusterFilter = null;
+let activeRoleFilter = null;
 
 function passesTextAndTags(n){
   if(n.kind==='cluster') return !searchQuery || n.key.toLowerCase().includes(searchQuery.toLowerCase());
@@ -680,6 +720,9 @@ function passesTextAndTags(n){
   if(selectedTags.size){
     const techsLower = (t.technologies||[]).map(x=>x.toLowerCase());
     ok = ok && [...selectedTags].every(tag=> techsLower.includes(tag));
+  }
+  if(activeRoleFilter){
+    ok = ok && (t.role || '') === activeRoleFilter;
   }
   return ok;
 }
@@ -708,6 +751,7 @@ function render(){
 
   layoutNodes.forEach(n=>{
     const g = ns('g');
+    g.setAttribute('class','graph-node');
     g.style.cursor = 'pointer';
 
     if(orphanMode){
@@ -759,7 +803,7 @@ function render(){
       }
       const label = ns('text');
       label.setAttribute('x', n.x); label.setAttribute('text-anchor','middle'); label.setAttribute('y', n.y + 22);
-      label.setAttribute('fill', '#38406a'); label.setAttribute('font-family','var(--sans)'); label.setAttribute('font-weight','500'); label.setAttribute('font-size','10.8');
+      label.setAttribute('fill', '#38406a'); label.setAttribute('font-family','var(--sans)'); label.setAttribute('font-weight','700'); label.setAttribute('font-size','10.8');
       const short = n.label.length > 27 ? n.label.slice(0,25)+'…' : n.label;
       label.textContent = short;
       g.appendChild(label);
@@ -769,11 +813,13 @@ function render(){
   });
 
   renderLegend(clusterKeys);
+  renderRoleFilter();
   renderTagCloud();
   renderTimeline();
   document.getElementById('topicCount').textContent = topics.length;
   document.getElementById('clusterCount').textContent = clusterKeys.length;
   refreshFamilyOptions();
+  refreshRoleOptions();
 }
 
 function renderLegend(clusterKeys){
@@ -799,12 +845,37 @@ function renderLegend(clusterKeys){
   });
 }
 
+function toggleRoleFilter(key){
+  activeRoleFilter = activeRoleFilter === key ? null : key;
+  render();
+}
+function renderRoleFilter(){
+  const el = document.getElementById('roleLegend');
+  const label = document.getElementById('roleSectionLabel');
+  const roles = [...buildRoles().keys()].sort((a,b)=>a.localeCompare(b));
+  el.innerHTML = '';
+  label.style.display = roles.length ? '' : 'none';
+  roles.forEach(role=>{
+    const count = topics.filter(t=> (t.role||'')===role).length;
+    const item = document.createElement('div');
+    item.className = 'cluster-item' + (activeRoleFilter && activeRoleFilter!==role ? ' dim':'');
+    item.innerHTML = `<div class="cluster-swatch" style="background:transparent;border-color:var(--ink-faint);cursor:default;"></div><span class="name">${escapeHtml(role)}</span><span class="n">${count}</span>`;
+    item.querySelector('.name').addEventListener('click', ()=> toggleRoleFilter(role));
+    item.querySelector('.n').addEventListener('click', ()=> toggleRoleFilter(role));
+    el.appendChild(item);
+  });
+}
+
+let tagCloudExpanded = false;
 function renderTagCloud(){
   const el = document.getElementById('tagCloud');
   const allTags = new Set();
   topics.forEach(t=> (t.technologies||[]).forEach(tag=> allTags.add(tag)));
+  const sorted = [...allTags].sort((a,b)=>a.localeCompare(b));
   el.innerHTML = '';
-  [...allTags].sort((a,b)=>a.localeCompare(b)).forEach(tag=>{
+  const LIMIT = 10;
+  const visible = tagCloudExpanded ? sorted : sorted.slice(0, LIMIT);
+  visible.forEach(tag=>{
     const lower = tag.toLowerCase();
     const chip = document.createElement('div');
     chip.className = 'tag-chip' + (selectedTags.has(lower) ? ' active':'');
@@ -815,7 +886,14 @@ function renderTagCloud(){
     });
     el.appendChild(chip);
   });
-  if(!allTags.size) el.innerHTML = "<div class=\"empty-note\" style=\"padding:0;\">Aucun mot-clé pour l'instant.</div>";
+  if(sorted.length > LIMIT){
+    const toggle = document.createElement('div');
+    toggle.className = 'tag-chip tag-toggle';
+    toggle.textContent = tagCloudExpanded ? 'Réduire' : `+${sorted.length - LIMIT} déployer`;
+    toggle.addEventListener('click', ()=>{ tagCloudExpanded = !tagCloudExpanded; renderTagCloud(); });
+    el.appendChild(toggle);
+  }
+  if(!sorted.length) el.innerHTML = "<div class=\"empty-note\" style=\"padding:0;\">Aucun mot-clé pour l'instant.</div>";
 }
 
 /* ============================= TIMELINE ============================= */
@@ -842,7 +920,7 @@ function renderTimeline(){
       el.className = 'timeline-item';
       el.style.setProperty('--dot-color', color);
       el.innerHTML = `<div class="t-title">${escapeHtml(t.title)}</div>
-        <div class="t-meta"><span>${t.date?formatDate(t.date):'Date non renseignée'}</span><span>·</span><span>${escapeHtml(clusterKeyOf(t))}</span></div>
+        <div class="t-meta"><span>${t.date?formatDate(t.date):'Date non renseignée'}</span><span>·</span><span>${escapeHtml(clusterKeyOf(t))}</span>${t.role?`<span>·</span><span>${escapeHtml(t.role)}</span>`:''}</div>
         <div class="t-desc">${escapeHtml(t.description||'')}</div>`;
       el.addEventListener('click', ()=> openDrawer(t));
       rail.appendChild(el);
@@ -883,7 +961,7 @@ function openDrawer(topic){
   document.getElementById('drawerContent').innerHTML = `
     <div class="cluster-tag"><div class="dot" style="background:${color}"></div>${escapeHtml(key)}</div>
     <h2>${escapeHtml(topic.title)}</h2>
-    <div class="date">${topic.date ? formatDate(topic.date) : 'Date non renseignée'}</div>
+    <div class="date">${topic.date ? formatDate(topic.date) : 'Date non renseignée'}${topic.role ? ' · '+escapeHtml(topic.role) : ''}</div>
     <p class="desc">${escapeHtml(topic.description||'')}</p>
     <div class="tag-list">${(topic.technologies||[]).map(t=>`<div class="tag">${escapeHtml(t)}</div>`).join('')}</div>
     ${allLinked.length ? `<div class="section-label" style="margin-top:0;">Sujets proches</div>
@@ -966,7 +1044,7 @@ function printFiche(topic){
   area.innerHTML = `
     <div style="font-size:11px;color:#777;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">${escapeHtml(key)}</div>
     <h2>${escapeHtml(topic.title)}</h2>
-    <div class="pdate">${topic.date ? formatDate(topic.date) : 'Date non renseignée'}</div>
+    <div class="pdate">${topic.date ? formatDate(topic.date) : 'Date non renseignée'}${topic.role ? ' · '+escapeHtml(topic.role) : ''}</div>
     <div class="ptags">${(topic.technologies||[]).map(t=>`<span>${escapeHtml(t)}</span>`).join('')}</div>
     <div class="pdesc">${escapeHtml(topic.description||'')}</div>
   `;
@@ -990,12 +1068,27 @@ document.getElementById('orphanToggle').addEventListener('click', (e)=>{
 });
 
 /* ============================= PAN / ZOOM ============================= */
-let scale = 1, tx = 0, ty = 0, dragging = false, lastX=0, lastY=0;
+let scale = 1, tx = 0, ty = 0, dragging = false, lastX=0, lastY=0, dragStartX=0, dragStartY=0, dragMoved=false;
 function applyTransform(){ viewport.setAttribute('transform', `translate(${tx},${ty}) scale(${scale})`); }
-svg.addEventListener('mousedown', (e)=>{ dragging=true; lastX=e.clientX; lastY=e.clientY; svg.classList.add('dragging'); });
-window.addEventListener('mouseup', ()=>{ dragging=false; svg.classList.remove('dragging'); });
+svg.addEventListener('mousedown', (e)=>{
+  dragging=true; lastX=e.clientX; lastY=e.clientY; dragStartX=e.clientX; dragStartY=e.clientY; dragMoved=false;
+  svg.classList.add('dragging');
+});
+window.addEventListener('mouseup', (e)=>{
+  dragging=false; svg.classList.remove('dragging');
+  if(!dragMoved){
+    const onNode = e.target && e.target.closest && e.target.closest('.graph-node');
+    if(!onNode && (activeClusterFilter || activeRoleFilter || drawer.classList.contains('open'))){
+      activeClusterFilter = null;
+      activeRoleFilter = null;
+      drawer.classList.remove('open');
+      render();
+    }
+  }
+});
 window.addEventListener('mousemove', (e)=>{
   if(!dragging) return;
+  if(Math.abs(e.clientX-dragStartX) > 4 || Math.abs(e.clientY-dragStartY) > 4) dragMoved = true;
   tx += (e.clientX-lastX); ty += (e.clientY-lastY); lastX=e.clientX; lastY=e.clientY;
   applyTransform();
 });
@@ -1028,10 +1121,23 @@ document.querySelectorAll('nav button').forEach(btn=>{
 const familySelect = document.getElementById('f-family');
 const newFamilyWrap = document.getElementById('newFamilyWrap');
 const newFamilyInput = document.getElementById('f-family-new');
+const roleSelect = document.getElementById('f-role');
+const newRoleWrap = document.getElementById('newRoleWrap');
+const newRoleInput = document.getElementById('f-role-new');
 const techInput = document.getElementById('f-tech');
 const titleInput = document.getElementById('f-title');
 const descInput = document.getElementById('f-desc');
 const linkPreview = document.getElementById('linkPreview');
+
+function buildRoles(){
+  const map = new Map();
+  topics.forEach(t=>{
+    const key = t.role || '';
+    if(!key) return;
+    map.set(key, (map.get(key)||0)+1);
+  });
+  return map;
+}
 
 function refreshFamilyOptions(){
   const keys = [...buildClusters().keys()].sort((a,b)=>a.localeCompare(b));
@@ -1043,6 +1149,19 @@ function refreshFamilyOptions(){
 }
 familySelect.addEventListener('change', ()=>{ newFamilyWrap.style.display = familySelect.value==='__new__' ? 'block' : 'none'; });
 function currentFamilyValue(){ return familySelect.value==='__new__' ? newFamilyInput.value.trim() : familySelect.value; }
+
+function refreshRoleOptions(){
+  const used = [...buildRoles().keys()];
+  const keys = [...new Set([...ROLE_PRESETS, ...used])].sort((a,b)=>a.localeCompare(b));
+  const current = roleSelect.value;
+  roleSelect.innerHTML = `<option value="">Sans fonction précisée</option>`
+    + keys.map(k=>`<option value="${escapeHtml(k)}">${escapeHtml(k)}</option>`).join('')
+    + `<option value="__new__">+ Nouvelle fonction…</option>`;
+  if(current==='__new__' || keys.includes(current) || current==='') roleSelect.value = current;
+  else roleSelect.value = '';
+}
+roleSelect.addEventListener('change', ()=>{ newRoleWrap.style.display = roleSelect.value==='__new__' ? 'block' : 'none'; });
+function currentRoleValue(){ return roleSelect.value==='__new__' ? newRoleInput.value.trim() : roleSelect.value; }
 
 function refreshLinkPreview(){
   const title = titleInput.value.trim();
@@ -1077,6 +1196,12 @@ function enterEditMode(topic){
   familySelect.value = keys.includes(topic.family) ? topic.family : '__new__';
   newFamilyWrap.style.display = familySelect.value==='__new__' ? 'block' : 'none';
   newFamilyInput.value = familySelect.value==='__new__' ? (topic.family||'') : '';
+  refreshRoleOptions();
+  const roleKeys = [...buildRoles().keys()];
+  if(!topic.role) roleSelect.value = '';
+  else roleSelect.value = roleKeys.includes(topic.role) ? topic.role : '__new__';
+  newRoleWrap.style.display = roleSelect.value==='__new__' ? 'block' : 'none';
+  newRoleInput.value = roleSelect.value==='__new__' ? (topic.role||'') : '';
   refreshLinkPreview();
   goToView('form');
 }
@@ -1089,7 +1214,7 @@ function exitEditMode(refreshList){
   document.getElementById('formCancelBtn').style.display = 'none';
   document.getElementById('topicForm').reset();
   linkPreview.classList.remove('show');
-  if(refreshList) refreshFamilyOptions();
+  if(refreshList){ refreshFamilyOptions(); refreshRoleOptions(); }
 }
 document.getElementById('formCancelBtn').addEventListener('click', ()=>{ exitEditMode(true); goToView('map'); });
 
@@ -1100,12 +1225,15 @@ document.getElementById('topicForm').addEventListener('submit', async (e)=>{
     const title = titleInput.value.trim();
     const techs = techInput.value.split(',').map(s=>s.trim()).filter(Boolean);
     const family = currentFamilyValue();
+    const role = currentRoleValue();
     const date = document.getElementById('f-date').value;
     const description = descInput.value.trim();
 
     if(!title){ showToast('Merci de saisir un intitulé.', true); titleInput.focus(); return; }
     if(!family){ showToast('Choisissez une famille, ou saisissez le nom de la nouvelle famille.', true);
       (familySelect.value==='__new__' ? newFamilyInput : familySelect).focus(); return; }
+    if(roleSelect.value==='__new__' && !role){ showToast('Saisissez le nom de la nouvelle fonction, ou choisissez "Sans fonction précisée".', true);
+      newRoleInput.focus(); return; }
     if(!description){ showToast('Merci de renseigner le détail du sujet.', true); descInput.focus(); return; }
 
     const candidate = {title, description, technologies:techs, family};
@@ -1115,13 +1243,13 @@ document.getElementById('topicForm').addEventListener('submit', async (e)=>{
     if(editingId){
       const t = topics.find(x=>x.id===editingId);
       if(!t){ showToast("Cette fiche n'existe plus.", true); exitEditMode(true); goToView('map'); return; }
-      Object.assign(t, {title, technologies:techs, family, date, description, linkedTo});
+      Object.assign(t, {title, technologies:techs, family, role, date, description, linkedTo});
       await saveTopics();
       showToast('Fiche mise à jour.');
       exitEditMode(true); goToView('map'); render();
       setTimeout(()=> openDrawer(t), 300);
     }else{
-      const newTopic = {id: uid(), title, technologies:techs, family, date, description, linkedTo};
+      const newTopic = {id: uid(), title, technologies:techs, family, role, date, description, linkedTo};
       topics.push(newTopic);
       await saveTopics();
       showToast('Fiche ajoutée.');
@@ -1147,7 +1275,7 @@ document.getElementById('exportBtn').addEventListener('click', ()=>{
   const payload = {topics, familyColors, exportedAt: new Date().toISOString()};
   const blob = new Blob([JSON.stringify(payload, null, 2)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a'); a.href = url; a.download = 'sujets-realises.json'; a.click();
+  const a = document.createElement('a'); a.href = url; a.download = 'site-data.json'; a.click();
   URL.revokeObjectURL(url);
 });
 document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
